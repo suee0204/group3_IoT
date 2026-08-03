@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Medisync Patient App</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="authScreen" class="phone">
+    <section id="onboarding" class="auth-page onboarding">
+      <div class="logo">Medisync <span>✚</span></div>
+      <button id="startBtn" class="primary">Get Started</button>
+    </section>
+
+    <section id="login" class="auth-page hidden">
+      <h3 class="center teal">Welcome</h3>
+      <h1>Sign In</h1>
+      <p class="muted">Make your appointment with Medisync</p>
+      <form id="loginForm">
+        <label>Email<input id="loginEmail" type="email" value="patient@medisync.com" required></label>
+        <label>Password<input id="loginPassword" type="password" value="password123" required></label>
+        <p id="loginMsg" class="msg hidden"></p>
+        <button class="primary full">Sign In</button>
+      </form>
+      <button id="toRegister" class="text-btn">Don't have an account? <b>Sign Up</b></button>
+    </section>
+
+    <section id="register" class="auth-page hidden">
+      <h3 class="center teal">Create New Account</h3>
+      <form id="registerForm">
+        <label>Full Name<input id="regName" required placeholder="Enter your full name"></label>
+        <label>Password<input id="regPassword" type="password" minlength="8" required></label>
+        <label>Email<input id="regEmail" type="email" required></label>
+        <label>Mobile Number<input id="regMobile" required></label>
+        <p id="registerMsg" class="msg hidden"></p>
+        <button class="primary full">Sign Up</button>
+      </form>
+      <button id="toLogin" class="text-btn">Already have an account? <b>Sign In</b></button>
+    </section>
+  </div>
+
+  <div id="app" class="phone hidden">
+    <header>
+      <div class="welcome">
+        <div id="avatar" class="avatar">JD</div>
+        <div><small>Hi, Welcome Back</small><strong id="welcomeName">Patient</strong></div>
+      </div>
+      <button class="icon-btn">♧</button>
+    </header>
+
+    <main>
+      <section id="homePage" class="page active">
+        <h2>Categories</h2>
+        <div class="categories">
+          <button id="bookShortcut" class="category">Doctor Consultations</button>
+          <button class="category">Follow-Ups</button>
+        </div>
+        <div class="section-title"><h2>Appointments</h2><button data-page="appointmentsPage">See All</button></div>
+        <div id="homeAppointments"></div>
+        <div class="section-title"><h2>Medicine Collection</h2><button data-page="medicinePage">See All</button></div>
+        <div id="homeMedicine"></div>
+      </section>
+
+      <section id="appointmentsPage" class="page">
+        <div class="page-title"><button data-page="homePage">‹</button><h1>Appointment</h1></div>
+        <div class="panel">
+          <label id="doctorField">Doctor<select id="doctorSelect"></select></label>
+          <label>Date<input id="appointmentDate" type="date" required></label>
+          <h3>Available Time Slot</h3>
+          <div id="timeSlots" class="slots">
+            <button data-time="10:00">10:00 AM</button>
+            <button class="selected" data-time="11:00">11:00 AM</button>
+            <button data-time="12:00">12:00 PM</button>
+            <button data-time="13:00">1:00 PM</button>
+          </div>
+          <label>Location
+            <select id="location">
+              <option>Yishun Polyclinic - Level 3</option>
+              <option>Medisync Clinic - Room 5</option>
+            </select>
+          </label>
+          <label>Notes<textarea id="notes" rows="3"></textarea></label>
+          <p id="bookingMsg" class="msg hidden"></p>
+          <button id="bookBtn" class="primary full">Book an Appointment</button>
+        </div>
+        <h2>Your Appointments</h2>
+        <div id="appointmentsList"></div>
+      </section>
+
+      <section id="medicinePage" class="page">
+        <div class="page-title"><button data-page="homePage">‹</button><h1>Medicine Collection</h1></div>
+        <div id="prescriptionsList"></div>
+      </section>
+
+      <section id="profilePage" class="page">
+        <div class="page-title"><button data-page="homePage">‹</button><h1>Profile</h1></div>
+        <div class="profile">
+          <div id="profileAvatar" class="avatar large">JD</div>
+          <h2 id="profileName"></h2>
+          <p id="profileEmail" class="muted"></p>
+          <p id="profileMobile" class="muted"></p>
+          <button id="logoutBtn" class="outline full">Logout</button>
+        </div>
+      </section>
+    </main>
+
+    <nav>
+      <button class="nav active" data-page="homePage">⌂<span>Home</span></button>
+      <button class="nav" data-page="appointmentsPage">◷<span>Appointments</span></button>
+      <button class="nav" data-page="medicinePage">◈<span>Medicine</span></button>
+      <button class="nav" data-page="profilePage">☺<span>Profile</span></button>
+    </nav>
+  </div>
+
+  <div id="successModal" class="modal hidden">
+    <div class="modal-card"><div class="success">✓</div><h2>Appointment has been made successfully</h2>
+      <button id="successBack" class="primary full">Back</button></div>
+  </div>
+  <div id="collectionModal" class="modal hidden">
+    <div class="modal-card"><button id="closeCollection" class="close">×</button><h2>Confirm Collection</h2>
+      <p class="muted">Slide to confirm your medicine collection.</p>
+      <div id="slideTrack" class="slider-track">
+        <div id="slideHandle" class="slider-handle">Swipe →</div>
+      </div>
+      <p id="collectionMsg" class="msg hidden"></p>
+    </div>
+  </div>
+  <div id="lockerModal" class="modal hidden">
+    <div class="modal-card"><button id="closeLocker" class="close">×</button><h2 id="lockerTitle">Locker Check</h2>
+      <p id="lockerBody" class="muted">Please confirm that the locker door is closed properly before you continue.</p>
+      <label class="checkbox-row"><input id="lockerClosed" type="checkbox"> Door is closed properly</label>
+      <p id="lockerMsg" class="msg hidden"></p>
+      <button id="lockerConfirm" class="primary full">Continue</button></div>
+  </div>
+<script src="script.js"></script>
+</body>
+</html>

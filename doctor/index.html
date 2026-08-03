@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Medisync Doctor Portal</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <section id="loginPage" class="login-page">
+    <div class="login-card">
+      <div class="brand">Medisync <span>✚</span></div>
+      <h1>Doctor Sign In</h1>
+      <form id="loginForm">
+        <label>Email<input id="email" type="email" value="doctor@medisync.com" required></label>
+        <label>Password<input id="password" type="password" value="password123" required></label>
+        <p id="loginMsg" class="msg hidden"></p>
+        <button class="primary full">Continue</button>
+      </form>
+    </div>
+  </section>
+
+  <div id="portal" class="hidden">
+    <header><div class="brand">Medisync <span>✚</span></div><div id="doctorName">Doctor</div></header>
+    <div class="layout">
+      <aside>
+        <button class="nav active" data-page="appointmentsPage">▦ Appointments</button>
+        <button class="nav" data-page="prescriptionsPage">▤ Prescriptions</button>
+        <button id="logoutBtn" class="nav">↪ Logout</button>
+      </aside>
+      <main>
+        <section id="appointmentsPage" class="page active">
+          <div class="page-head appointment-heading">
+            <div>
+              <small>APPOINTMENTS</small>
+              <h1>Coming Appointments</h1>
+            </div>
+
+            <div class="week-controls">
+              <button id="previousWeekButton" class="calendar-control" type="button">‹</button>
+              <button id="todayButton" class="calendar-today" type="button">Today</button>
+              <strong id="weekRange"></strong>
+              <button id="nextWeekButton" class="calendar-control" type="button">›</button>
+            </div>
+          </div>
+
+          <div class="calendar-shell">
+            <div id="doctorCalendar" class="doctor-calendar"></div>
+          </div>
+
+          <div id="calendarLegend" class="calendar-legend">
+            <span><i class="legend-booked"></i> Booked appointment</span>
+          </div>
+        </section>
+
+        <section id="prescriptionsPage" class="page">
+          <div class="page-head">
+            <div><small>PRESCRIPTIONS</small><h1>Medication Requests</h1></div>
+            <button id="openForm" class="primary">+ New Prescription</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Request ID</th><th>Patient</th><th>Medication</th><th>PIN</th><th>Status</th></tr></thead>
+              <tbody id="prescriptionRows"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div id="formModal" class="modal hidden">
+    <div class="modal-card">
+      <button id="closeForm" class="close">×</button>
+      <small>NEW PRESCRIPTION</small>
+      <h2>Create Medication Request</h2>
+      <form id="prescriptionForm">
+        <label>Patient<select id="patientSelect"></select></label>
+        <p class="muted">Only patients with a booked consultation appear here.</p>
+        <div class="grid">
+          <label>Medication<input id="medicationName" required></label>
+          <label>Dosage<input id="dosage" placeholder="500 mg" required></label>
+          <label>Frequency<input id="frequency" placeholder="3 times daily" required></label>
+          <label>Quantity<input id="quantity" type="number" min="1" value="1" required></label>
+        </div>
+        <label>Collection Location
+          <select id="collectionLocation">
+            <option>Yishun Polyclinic - Level 3</option>
+            <option>Medisync Clinic - Room 5</option>
+          </select>
+        </label>
+        <label>Instructions<textarea id="instructions" rows="3"></textarea></label>
+        <p id="formMsg" class="msg hidden"></p>
+        <button class="primary full">Generate PIN and Send</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="resultModal" class="modal hidden">
+    <div class="modal-card result">
+      <button id="closeResult" class="close">×</button>
+      <div class="success">✓</div>
+      <h2>Prescription Sent</h2>
+      <p>The patient can now see the prescription in the patient app.</p>
+      <div class="pin-box">PIN: <strong id="generatedPin"></strong></div>
+      <div id="requestId"></div>
+    </div>
+  </div>
+<script src="script.js"></script>
+</body>
+</html>
