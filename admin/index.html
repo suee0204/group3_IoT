@@ -1,6 +1,70 @@
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Medisync Admin</title><link rel="stylesheet" href="style.css"></head><body>
 <section id="loginPage" class="login-page"><form id="loginForm" class="login-card"><div class="brand">Medisync <span>✚</span></div><p class="eyebrow">ADMINISTRATION</p><h1>Administrator Sign In</h1><label>Email<input id="email" type="email" value="admin@medisync.com" required></label><label>Password<input id="password" type="password" value="admin12345" required></label><p id="loginMessage" class="message hidden"></p><button class="primary full">Sign In</button></form></section>
-<div id="adminApp" class="hidden"><header><div class="brand">Medisync <span>✚</span></div><div><span id="adminName">Administrator</span><button id="logoutButton" class="outline">Logout</button></div></header><main><section class="hero"><div><p class="eyebrow">ACCOUNT MANAGEMENT</p><h1>Doctor Access Control</h1><p>Create doctor accounts and manage availability.</p></div><button id="openCreateButton" class="primary">+ Create Doctor</button></section><div class="tabs"><button class="tab active" data-tab="doctorsTab">Doctor Accounts</button><button class="tab" data-tab="availabilityTab">Availability</button></div><p id="adminMessage" class="message hidden"></p><section id="doctorsTab" class="card tab-panel active"><div class="toolbar"><input id="searchInput" placeholder="Search doctor or email"><select id="accessFilter"><option value="all">All accounts</option><option value="active">Active only</option><option value="inactive">Inactive only</option></select></div><div class="table-wrap"><table><thead><tr><th>Doctor</th><th>Email</th><th>Specialisation</th><th>Mobile</th><th>Access</th><th>Actions</th></tr></thead><tbody id="doctorRows"></tbody></table></div></section><section id="availabilityTab" class="card tab-panel hidden"><div class="table-wrap"><table><thead><tr><th>Doctor</th><th>Specialisation</th><th>Status</th><th>Next Consultation</th></tr></thead><tbody id="availabilityRows"></tbody></table></div></section></main></div>
+<div id="adminApp" class="hidden"><header><div class="brand">Medisync <span>✚</span></div><div><span id="adminName">Administrator</span><button id="logoutButton" class="outline">Logout</button></div></header><main><section class="hero"><div><p class="eyebrow">ACCOUNT MANAGEMENT</p><h1>Doctor Access Control</h1><p>Create doctor accounts and manage availability.</p></div><button id="openCreateButton" class="primary">+ Create Doctor</button></section><div class="tabs"><button class="tab active" data-tab="doctorsTab">Doctor Accounts</button></div><p id="adminMessage" class="message hidden"></p><section id="doctorsTab" class="card tab-panel active"><div class="toolbar"><input id="searchInput" placeholder="Search doctor or email"><select id="accessFilter"><option value="all">All accounts</option><option value="active">Active only</option><option value="inactive">Inactive only</option></select></div><div class="table-wrap"><table><thead><tr><th>Doctor</th><th>Email</th><th>Specialisation</th><th>Mobile</th><th>RFID Tag</th><th>Access</th><th>Actions</th></tr></thead><tbody id="doctorRows"></tbody></table></div></section>
+      <section id="roomsPage" class="admin-page">
+        <section class="hero">
+          <div>
+            <p class="eyebrow">ROOM SCHEDULING</p>
+            <h1>Clinic Room Availability</h1>
+            <p>View available and booked 30-minute clinic-room slots.</p>
+          </div>
+          <label class="date-filter">
+            Date
+            <input id="roomAvailabilityDate" type="date">
+          </label>
+        </section>
+
+        <section class="card">
+          <div class="room-legend">
+            <span><i class="legend-dot available-dot"></i>Available</span>
+            <span><i class="legend-dot booked-dot"></i>Booked</span>
+          </div>
+          <div id="roomAvailabilityGrid" class="room-availability-grid"></div>
+        </section>
+      </section>
+
+    
+      <section id="medicationUsagePage" class="admin-page">
+        <section class="hero">
+          <div>
+            <p class="eyebrow">MEDICATION REPORTING</p>
+            <h1>Daily Medication Usage</h1>
+            <p>
+              View the total medication collected each day and the quantity
+              used for every medication type.
+            </p>
+          </div>
+          <label class="date-filter">
+            Date
+            <input id="medicationUsageDate" type="date">
+          </label>
+        </section>
+
+        <section class="usage-summary-grid">
+          <article class="summary-card">
+            <span>Total Quantity Given Out</span>
+            <strong id="totalMedicationQuantity">0</strong>
+          </article>
+          <article class="summary-card">
+            <span>Total Collections</span>
+            <strong id="totalMedicationCollections">0</strong>
+          </article>
+          <article class="summary-card">
+            <span>Medication Types</span>
+            <strong id="totalMedicationTypes">0</strong>
+          </article>
+        </section>
+
+        <section class="card">
+          <div id="medicationUsageList" class="medication-usage-list"></div>
+        </section>
+      </section>
+
+    </main></div>
 <div id="createModal" class="modal hidden"><form id="createDoctorForm" class="modal-card"><button type="button" class="close" data-close="createModal">×</button><p class="eyebrow">NEW DOCTOR</p><h2>Create Doctor Account</h2><label>Full Name<input id="doctorFullName" required></label><label>Email<input id="doctorEmail" type="email" required></label><label>Temporary Password<input id="doctorPassword" type="password" minlength="8" required></label><label>Mobile Number<input id="doctorMobile"></label><label>Specialisation<select id="doctorSpecialisation"><option>General Practitioner</option><option>Cardiologist</option><option>Dermatologist</option><option>Neurologist</option><option>Paediatrician</option></select></label><p id="createMessage" class="message hidden"></p><button class="primary full">Create Account</button></form></div>
 <div id="passwordModal" class="modal hidden"><form id="passwordForm" class="modal-card"><button type="button" class="close" data-close="passwordModal">×</button><p class="eyebrow">PASSWORD RESET</p><h2>Set Temporary Password</h2><input id="resetPassword" type="password" minlength="8" required placeholder="At least 8 characters"><p id="passwordMessage" class="message hidden"></p><button class="primary full">Reset Password</button></form></div>
-<script src="script.js"></script></body></html>
+
+<div id="rfidModal" class="modal hidden"><form id="rfidForm" class="modal-card"><button type="button" class="close" data-close="rfidModal">×</button><p class="eyebrow">LINK RFID TAG</p><h2>Set RFID Tag UID</h2><label>RFID Tag UID (8-char hex)<input id="rfidUidInput" required placeholder="e.g. E1290F06" pattern="^[a-fA-F0-9]{8}$" title="8-character hexadecimal UID"></label><p id="rfidMessage" class="message hidden"></p><button class="primary full">Link RFID Tag</button></form></div>
+<script src="script.js"></script>
+<div id="passwordChangeModal" class="modal hidden"><form id="passwordChangeForm" class="modal-card"><h2>Password Change Required</h2><p>Replace your temporary password before continuing.</p><label>New Password<input id="requiredNewPassword" type="password" minlength="10" required></label><small>At least 10 characters with uppercase, lowercase and numbers.</small><p id="passwordChangeMessage" class="message hidden"></p><button class="primary full">Change Password</button></form></div>
+</body></html>
