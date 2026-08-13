@@ -19,43 +19,113 @@ const { Schema } = mongoose;
 
 
 /* =========================================================
-   Email OTP for patient appointment booking (Resend HTTPS API)
+   Email OTP for patient appointment booking (Gmail API over HTTPS)
+   Works on Render Free because it uses HTTPS instead of SMTP.
    ========================================================= */
 function generateOtp() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-async function sendResendEmail({ to, subject, text }) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM;
+let gmailAccessToken = null;
+let gmailAccessTokenExpiresAt = 0;
 
-  if (!apiKey) {
-    throw new Error("RESEND_API_KEY is not configured.");
+async function getGmailAccessToken() {
+  // Reuse the token until shortly before it expires.
+  if (gmailAccessToken && Date.now() < gmailAccessTokenExpiresAt - 60_000) {
+    return gmailAccessToken;
   }
 
-  if (!from) {
-    throw new Error("RESEND_FROM is not configured.");
-  }
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
 
-  const response = await fetch("https://api.resend.com/emails", {
+  if (!clientId) throw new Error("GOOGLE_CLIENT_ID is not configured.");
+  if (!clientSecret) throw new Error("GOOGLE_CLIENT_SECRET is not configured.");
+  if (!refreshToken) throw new Error("GOOGLE_REFRESH_TOKEN is not configured.");
+
+  const body = new URLSearchParams({
+    client_id: clientId,
+    client_secret: clientSecret,
+    refresh_token: refreshToken,
+    grant_type: "refresh_token"
+  });
+
+  const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
+      "Content-Type": "application/x-www-form-urlencoded"
     },
-    body: JSON.stringify({
-      from,
-      to: [to],
-      subject,
-      text
-    })
+    body
   });
 
   const result = await response.json().catch(() => ({}));
 
+  if (!response.ok || !result.access_token) {
+    const detail =
+      result.error_description || result.error || `HTTP ${response.status}`;
+    throw new Error(`Unable to refresh Gmail access token: ${detail}`);
+  }
+
+  gmailAccessToken = result.access_token;
+  gmailAccessTokenExpiresAt =
+    Date.now() + Number(result.expires_in || 3600) * 1000;
+
+  return gmailAccessToken;
+}
+
+function encodeGmailMessage({ from, to, subject, text }) {
+  // RFC 2822 email. Base64url is required by Gmail API.
+  const message = [
+    `From: Medisync <${from}>`,
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    "MIME-Version: 1.0",
+    'Content-Type: text/plain; charset="UTF-8"',
+    "Content-Transfer-Encoding: 8bit",
+    "",
+    text
+  ].join("\r\n");
+
+  return Buffer.from(message)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+async function sendGmailApiEmail({ to, subject, text }) {
+  const gmailUser = process.env.GMAIL_USER;
+
+  if (!gmailUser) {
+    throw new Error("GMAIL_USER is not configured.");
+  }
+
+  const accessToken = await getGmailAccessToken();
+  const raw = encodeGmailMessage({
+    from: gmailUser,
+    to,
+    subject,
+    text
+  });
+
+  const response = await fetch(
+    "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ raw })
+    }
+  );
+
+  const result = await response.json().catch(() => ({}));
+
   if (!response.ok) {
-    const detail = result?.message || result?.name || `HTTP ${response.status}`;
-    throw new Error(`Resend email failed: ${detail}`);
+    const detail =
+      result?.error?.message || result?.error?.status || `HTTP ${response.status}`;
+    throw new Error(`Gmail API email failed: ${detail}`);
   }
 
   return result;
@@ -68,7 +138,7 @@ async function sendAppointmentOtp({
   appointmentDate,
   appointmentTime
 }) {
-  await sendResendEmail({
+  await sendGmailApiEmail({
     to: toEmail,
     subject: "Your Medisync appointment verification code",
     text:
@@ -88,7 +158,7 @@ async function sendAppointmentConfirmedEmail({
   appointmentTime,
   location
 }) {
-  await sendResendEmail({
+  await sendGmailApiEmail({
     to: toEmail,
     subject: "Your Medisync appointment is confirmed",
     text:
