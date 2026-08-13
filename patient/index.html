@@ -8,7 +8,10 @@
 </head>
 <body>
   <div id="authScreen" class="phone">
-    <section id="onboarding" class="auth-page onboarding">
+    
+
+
+<section id="onboarding" class="auth-page onboarding">
       <div class="logo">Medisync <span>✚</span></div>
       <button id="startBtn" class="primary">Get Started</button>
     </section>
@@ -53,14 +56,20 @@
       <section id="homePage" class="page active">
         <h2>Categories</h2>
         <div class="categories">
-          <button id="bookShortcut" class="category">Doctor Consultations</button>
-          <button class="category">Follow-Ups</button>
+          <button id="bookShortcut" class="category">Book Your Appointment</button>
+          
         </div>
         <div class="section-title"><h2>Appointments</h2><button data-page="appointmentsPage">See All</button></div>
         <div id="homeAppointments"></div>
         <div class="section-title"><h2>Medicine Collection</h2><button data-page="medicinePage">See All</button></div>
         <div id="homeMedicine"></div>
       </section>
+<section class="home-section follow-up-home-section">
+  <div class="section-heading">
+    <h2>Follow-Up Reminder</h2>
+  </div>
+  <div id="homeFollowUps"></div>
+</section>
 
       <section id="appointmentsPage" class="page">
         <div class="page-title"><button data-page="homePage">‹</button><h1>Appointment</h1></div>
@@ -69,7 +78,27 @@
           <label>Date<input id="appointmentDate" type="date" required></label>
           <h3>Available Time Slot</h3>
           <div id="timeSlots" class="slots">
-            <button data-time="10:00">10:00 AM</button>
+<button type="button" data-time="08:00">8 - 830</button>
+<button type="button" data-time="08:30">830 - 9</button>
+<button type="button" data-time="09:00">9 - 930</button>
+<button type="button" data-time="09:30">930 - 10</button>
+<button type="button" data-time="10:00">10 - 1030</button>
+<button type="button" data-time="10:30">1030 - 11</button>
+<button type="button" data-time="11:00">11 - 1130</button>
+<button type="button" data-time="11:30">1130 - 12</button>
+<button type="button" data-time="12:00">12 - 1230</button>
+<button type="button" data-time="12:30">1230 - 13</button>
+<button type="button" data-time="13:00">13 - 1330</button>
+<button type="button" data-time="13:30">1330 - 14</button>
+<button type="button" data-time="14:00">14 - 1430</button>
+<button type="button" data-time="14:30">1430 - 15</button>
+<button type="button" data-time="15:00">15 - 1530</button>
+<button type="button" data-time="15:30">1530 - 16</button>
+<button type="button" data-time="16:00">16 - 1630</button>
+<button type="button" data-time="16:30">1630 - 17</button>
+<button type="button" data-time="17:00">17 - 1730</button>
+<button type="button" data-time="17:30">1730 - 18</button>
+</button>
             <button class="selected" data-time="11:00">11:00 AM</button>
             <button data-time="12:00">12:00 PM</button>
             <button data-time="13:00">1:00 PM</button>
@@ -117,6 +146,18 @@
     <div class="modal-card"><div class="success">✓</div><h2>Appointment has been made successfully</h2>
       <button id="successBack" class="primary full">Back</button></div>
   </div>
+
+  <div id="otpModal" class="modal hidden">
+    <div class="modal-card">
+      <button id="otpCancelBtn" class="close" type="button">×</button>
+      <h2>Verify Your Email</h2>
+      <p class="muted">We sent a 6-digit verification code to your registered email address.</p>
+      <p class="muted">Enter the code below to confirm your appointment.</p>
+      <input id="otpInput" type="text" maxlength="6" inputmode="numeric" autocomplete="one-time-code" placeholder="000000">
+      <p id="otpMsg" class="msg hidden"></p>
+      <button id="otpConfirmBtn" class="primary full" type="button">Verify & Confirm Appointment</button>
+    </div>
+  </div>
   <div id="collectionModal" class="modal hidden">
     <div class="modal-card"><button id="closeCollection" class="close">×</button><h2>Confirm Collection</h2>
       <p class="muted">Slide to confirm your medicine collection.</p>
@@ -134,5 +175,7 @@
       <button id="lockerConfirm" class="primary full">Continue</button></div>
   </div>
 <script src="script.js"></script>
+
+<div id="passwordChangeModal" class="modal hidden"><form id="passwordChangeForm" class="modal-card"><h2>Password Change Required</h2><p>Replace your temporary password before continuing.</p><label>New Password<input id="requiredNewPassword" type="password" minlength="10" required></label><small>At least 10 characters with uppercase, lowercase and numbers.</small><p id="passwordChangeMessage" class="message hidden"></p><button class="primary full">Change Password</button></form></div>
 </body>
 </html>
