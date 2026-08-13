@@ -13,6 +13,10 @@ services:
         sync: false
       - key: SESSION_SECRET
         generateValue: true
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM
+        sync: false
       - key: MIN_SAFE_TEMPERATURE
         value: "15"
       - key: MAX_SAFE_TEMPERATURE
