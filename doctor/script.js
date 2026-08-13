@@ -1,3 +1,61 @@
+
+let doctorHeartbeatTimer = null;
+
+async function sendDoctorHeartbeat() {
+  try {
+    await api("/api/doctor/heartbeat", {
+      method: "POST",
+      body: JSON.stringify({})
+    });
+  } catch (error) {
+    console.error("Doctor heartbeat failed:", error.message);
+  }
+}
+
+function startDoctorHeartbeat() {
+  if (doctorHeartbeatTimer) {
+    clearInterval(doctorHeartbeatTimer);
+  }
+
+  sendDoctorHeartbeat();
+
+  doctorHeartbeatTimer = setInterval(
+    sendDoctorHeartbeat,
+    15000
+  );
+}
+
+function stopDoctorHeartbeat() {
+  if (doctorHeartbeatTimer) {
+    clearInterval(doctorHeartbeatTimer);
+    doctorHeartbeatTimer = null;
+  }
+}
+
+
+function formatAppointmentRange(startTime) {
+  const [hourText, minuteText] = String(startTime || "00:00")
+    .slice(0, 5)
+    .split(":");
+
+  const startMinutes =
+    Number(hourText) * 60 + Number(minuteText);
+
+  const endMinutes = startMinutes + 30;
+
+  const compact = totalMinutes => {
+    const hour = Math.floor(totalMinutes / 60);
+    const minute = totalMinutes % 60;
+    return minute === 0
+      ? String(hour)
+      : `${hour}${String(minute).padStart(2, "0")}`;
+  };
+
+  return `${compact(startMinutes)} - ${compact(endMinutes)}`;
+}
+
+
+async function requirePasswordChangeIfNeeded(account){if(!account?.mustChangePassword)return;const modal=document.getElementById("passwordChangeModal"),form=document.getElementById("passwordChangeForm"),input=document.getElementById("requiredNewPassword"),box=document.getElementById("passwordChangeMessage");modal.classList.remove("hidden");await new Promise(resolve=>{form.onsubmit=async e=>{e.preventDefault();try{await api("/api/change-password",{method:"POST",body:JSON.stringify({newPassword:input.value})});modal.classList.add("hidden");resolve()}catch(error){box.textContent=error.message;box.className="message error"}}})}
 let account = null;
 let calendarWeekOffset = 0;
 let doctorAppointments = [];
@@ -208,11 +266,11 @@ function renderDoctorCalendar() {
         appointmentButton.className = "calendar-appointment";
         appointmentButton.innerHTML = `
           <strong>${appointment.patientName}</strong>
-          <span>${appointment.appointmentTime} · ${appointment.location}</span>
+          <span>${formatAppointmentRange(appointment.appointmentTime)} · ${appointment.location}</span>
         `;
 
         appointmentButton.title =
-          `${appointment.patientName}\n${appointment.appointmentDate} ${appointment.appointmentTime}\n${appointment.location}`;
+          `${appointment.patientName}\n${appointment.appointmentDate} ${formatAppointmentRange(appointment.appointmentTime)}\n${appointment.location}`;
 
         appointmentButton.onclick = () => showAppointmentDetails(appointment);
         slot.appendChild(appointmentButton);
@@ -223,23 +281,76 @@ function renderDoctorCalendar() {
   }
 }
 
-function showAppointmentDetails(appointment) {
-  const existing = document.getElementById("appointmentDetail");
-  if (existing) existing.remove();
+async function showAppointmentDetails(appointment) {
+  try {
+    const data = await api(`/api/doctor/appointments/${appointment.id}`);
+    const detail = data.appointment;
 
-  const details = document.createElement("div");
-  details.id = "appointmentDetail";
-  details.className = "appointment-detail";
-  details.innerHTML = `
-    <h3>${appointment.patientName}</h3>
-    <p><strong>Date:</strong> ${appointment.appointmentDate}</p>
-    <p><strong>Time:</strong> ${appointment.appointmentTime}</p>
-    <p><strong>Location:</strong> ${appointment.location}</p>
-    <p><strong>Status:</strong> ${appointment.status}</p>
-  `;
+    selectedAppointment = detail;
+    appointmentPatientName.textContent = detail.patientName;
+    appointmentDetailDate.textContent = detail.appointmentDate;
+    appointmentDetailTime.textContent = detail.appointmentTime;
+    appointmentDetailLocation.textContent = detail.location;
+    appointmentDetailStatus.textContent = detail.status;
+    appointmentPatientEmail.textContent = detail.patientEmail || "-";
+    appointmentPatientMobile.textContent = detail.patientMobile || "-";
+    appointmentNotes.textContent = detail.notes || "No consultation notes.";
 
-  document.getElementById("calendarLegend").after(details);
+    appointmentPrescriptionList.innerHTML = data.prescriptions.length
+      ? data.prescriptions.map(prescription => `
+          <article class="mini-prescription">
+            <strong>${prescription.medicationName}</strong>
+            <span>${prescription.dosage} · ${prescription.frequency}</span>
+            <span>Quantity: ${prescription.quantity}</span>
+            <span class="status">${prescription.status}</span>
+          </article>
+        `).join("")
+      : `<p class="muted">No prescription has been created from this appointment.</p>`;
+
+    const appointmentDateTime = new Date(
+      `${detail.appointmentDate}T${String(detail.appointmentTime).slice(0, 5)}:00`
+    );
+    const canPrescribe =
+      detail.status === "Completed" || appointmentDateTime <= new Date();
+
+    prescribeFromAppointment.disabled = !canPrescribe;
+    prescribeFromAppointment.textContent = canPrescribe
+      ? "Give Prescription"
+      : "Consultation Has Not Started";
+
+    appointmentModal.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+  } catch (error) {
+    alert(error.message);
+  }
 }
+
+
+let selectedAppointment = null;
+
+closeAppointmentModal.onclick = () => {
+  appointmentModal.classList.add("hidden");
+  document.body.classList.remove("modal-open");
+};
+
+prescribeFromAppointment.onclick = () => {
+  if (!selectedAppointment || prescribeFromAppointment.disabled) return;
+
+  selectedAppointmentId.value = selectedAppointment.id;
+  patientSelect.innerHTML = `
+    <option value="${selectedAppointment.patientId}">
+      ${selectedAppointment.patientName}
+    </option>
+  `;
+  patientSelect.value = selectedAppointment.patientId;
+  patientSelect.disabled = true;
+
+  appointmentModal.classList.add("hidden");
+  document.body.classList.remove("modal-open");
+  formMsg.classList.add("hidden");
+  formModal.classList.remove("hidden");
+  document.body.classList.add("modal-open");
+};
 
 previousWeekButton.onclick = () => {
   calendarWeekOffset -= 1;
@@ -270,8 +381,13 @@ async function loadPrescriptions() {
   `).join("");
 }
 
-openForm.onclick = () => formModal.classList.remove("hidden");
-closeForm.onclick = () => formModal.classList.add("hidden");
+
+closeForm.onclick = () => {
+  formModal.classList.add("hidden");
+  document.body.classList.remove("modal-open");
+  selectedAppointmentId.value = "";
+  selectedAppointment = null;
+};
 closeResult.onclick = () => resultModal.classList.add("hidden");
 
 prescriptionForm.onsubmit = async event => {
@@ -282,22 +398,29 @@ prescriptionForm.onsubmit = async event => {
     const data = await api("/api/doctor/prescriptions", {
       method: "POST",
       body: JSON.stringify({
+        appointmentId: selectedAppointmentId.value,
         patientId: patientSelect.value,
         medicationName: medicationName.value,
         dosage: dosage.value,
         frequency: frequency.value,
         quantity: Number(quantity.value),
-        instructions: instructions.value,
-        collectionLocation: collectionLocation.value
+        instructions: instructions.value
       })
     });
 
     formModal.classList.add("hidden");
+  document.body.classList.remove("modal-open");
     generatedPin.textContent = data.collectionPin;
     requestId.textContent = `Request ID: ${data.requestId}`;
     resultModal.classList.remove("hidden");
     event.target.reset();
-    await loadPrescriptions();
+    selectedAppointmentId.value = "";
+    selectedAppointment = null;
+    followUpRequired.checked = false;
+    followUpReason.value = "";
+    followUpDetails.classList.add("hidden");
+    patientSelect.disabled = true;
+    await Promise.all([loadPrescriptions(), loadAppointments()]);
   } catch (error) {
     msg(formMsg, error.message, "error");
   }
@@ -317,3 +440,25 @@ logoutBtn.onclick = async () => {
     // No active doctor session.
   }
 })();
+
+
+if (typeof followUpRequired !== "undefined") {
+  followUpRequired.onchange = () => {
+    followUpDetails.classList.toggle(
+      "hidden",
+      !followUpRequired.checked
+    );
+
+    followUpReason.required =
+      followUpRequired.checked;
+
+    if (!followUpRequired.checked) {
+      followUpReason.value = "";
+    }
+  };
+}
+
+
+window.addEventListener("beforeunload", () => {
+  stopDoctorHeartbeat();
+});
