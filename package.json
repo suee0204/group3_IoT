@@ -4,7 +4,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "backup": "node scripts/export-backup.js",
+    "restore": "node scripts/restore-backup.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
@@ -12,7 +14,10 @@
     "dotenv": "^16.6.1",
     "express": "^5.1.0",
     "express-session": "^1.18.2",
-    "mongoose": "^8.17.1"
+    "mongoose": "^8.17.1",
+    "express-rate-limit": "^7.5.1",
+    "helmet": "^8.1.0",
+    "nodemailer": "^9.0.3"
   },
   "description": "Connected Medisync patient, doctor and admin portals using MongoDB"
 }
