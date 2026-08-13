@@ -13,9 +13,13 @@ services:
         sync: false
       - key: SESSION_SECRET
         generateValue: true
-      - key: RESEND_API_KEY
+      - key: GMAIL_USER
         sync: false
-      - key: RESEND_FROM
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REFRESH_TOKEN
         sync: false
       - key: MIN_SAFE_TEMPERATURE
         value: "15"
