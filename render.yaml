@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: medisync
+    name: medisync-secure
     runtime: node
     plan: free
     buildCommand: npm ci
@@ -13,3 +13,9 @@ services:
         sync: false
       - key: SESSION_SECRET
         generateValue: true
+      - key: MIN_SAFE_TEMPERATURE
+        value: "15"
+      - key: MAX_SAFE_TEMPERATURE
+        value: "30"
+      - key: MAX_SAFE_HUMIDITY
+        value: "70"
