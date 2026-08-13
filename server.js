@@ -9,7 +9,6 @@ const mongoose = require("mongoose");
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
 const crypto = require("crypto");
-const nodemailer = require("nodemailer");
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -20,18 +19,46 @@ const { Schema } = mongoose;
 
 
 /* =========================================================
-   Email OTP for patient appointment booking
+   Email OTP for patient appointment booking (Resend HTTPS API)
    ========================================================= */
-const mailTransporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD
-  }
-});
-
 function generateOtp() {
   return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+async function sendResendEmail({ to, subject, text }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.RESEND_FROM;
+
+  if (!apiKey) {
+    throw new Error("RESEND_API_KEY is not configured.");
+  }
+
+  if (!from) {
+    throw new Error("RESEND_FROM is not configured.");
+  }
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      from,
+      to: [to],
+      subject,
+      text
+    })
+  });
+
+  const result = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const detail = result?.message || result?.name || `HTTP ${response.status}`;
+    throw new Error(`Resend email failed: ${detail}`);
+  }
+
+  return result;
 }
 
 async function sendAppointmentOtp({
@@ -41,8 +68,7 @@ async function sendAppointmentOtp({
   appointmentDate,
   appointmentTime
 }) {
-  await mailTransporter.sendMail({
-    from: `"Medisync" <${process.env.GMAIL_USER}>`,
+  await sendResendEmail({
     to: toEmail,
     subject: "Your Medisync appointment verification code",
     text:
@@ -62,8 +88,7 @@ async function sendAppointmentConfirmedEmail({
   appointmentTime,
   location
 }) {
-  await mailTransporter.sendMail({
-    from: `"Medisync" <${process.env.GMAIL_USER}>`,
+  await sendResendEmail({
     to: toEmail,
     subject: "Your Medisync appointment is confirmed",
     text:
