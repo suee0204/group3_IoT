@@ -16,8 +16,7 @@
     "express-session": "^1.18.2",
     "mongoose": "^8.17.1",
     "express-rate-limit": "^7.5.1",
-    "helmet": "^8.1.0",
-    "nodemailer": "^9.0.3"
+    "helmet": "^8.1.0"
   },
   "description": "Connected Medisync patient, doctor and admin portals using MongoDB"
 }
