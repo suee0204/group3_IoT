@@ -56,7 +56,7 @@
         <section id="prescriptionsPage" class="page">
           <div class="page-head">
             <div><small>PRESCRIPTIONS</small><h1>Medication Requests</h1></div>
-            <button id="openForm" class="primary">+ New Prescription</button>
+            
           </div>
           <div class="table-wrap">
             <table>
@@ -75,7 +75,8 @@
       <small>NEW PRESCRIPTION</small>
       <h2>Create Medication Request</h2>
       <form id="prescriptionForm">
-        <label>Patient<select id="patientSelect"></select></label>
+        <input id="selectedAppointmentId" type="hidden">
+        <label>Patient<select id="patientSelect" disabled></select></label>
         <p class="muted">Only patients with a booked consultation appear here.</p>
         <div class="grid">
           <label>Medication<input id="medicationName" required></label>
@@ -83,16 +84,64 @@
           <label>Frequency<input id="frequency" placeholder="3 times daily" required></label>
           <label>Quantity<input id="quantity" type="number" min="1" value="1" required></label>
         </div>
-        <label>Collection Location
-          <select id="collectionLocation">
-            <option>Yishun Polyclinic - Level 3</option>
-            <option>Medisync Clinic - Room 5</option>
-          </select>
-        </label>
+        
         <label>Instructions<textarea id="instructions" rows="3"></textarea></label>
         <p id="formMsg" class="msg hidden"></p>
-        <button class="primary full">Generate PIN and Send</button>
+        
+<div class="follow-up-section">
+  <label class="checkbox-row">
+    <input id="followUpRequired" type="checkbox">
+    <span>Patient requires a follow-up appointment</span>
+  </label>
+
+  <div id="followUpDetails" class="hidden">
+    <label>
+      Follow-up reason
+      <textarea
+        id="followUpReason"
+        placeholder="Example: Review response to medication after 2 weeks"
+      ></textarea>
+    </label>
+    <small>
+      The patient will receive a reminder in the patient application
+      and can click it to book the follow-up.
+    </small>
+  </div>
+</div>
+
+<button class="primary full">Generate PIN and Send</button>
       </form>
+    </div>
+  </div>
+
+  
+  <div id="appointmentModal" class="modal hidden">
+    <div class="modal-card appointment-modal-card">
+      <button id="closeAppointmentModal" class="close">×</button>
+      <small>CONSULTATION DETAILS</small>
+      <h2 id="appointmentPatientName">Patient Appointment</h2>
+
+      <div class="appointment-detail-grid">
+        <div><span>Date</span><strong id="appointmentDetailDate">-</strong></div>
+        <div><span>Time</span><strong id="appointmentDetailTime">-</strong></div>
+        <div><span>Location</span><strong id="appointmentDetailLocation">-</strong></div>
+        <div><span>Status</span><strong id="appointmentDetailStatus">-</strong></div>
+      </div>
+
+      <div class="patient-contact-card">
+        <p><b>Email:</b> <span id="appointmentPatientEmail">-</span></p>
+        <p><b>Mobile:</b> <span id="appointmentPatientMobile">-</span></p>
+        <p><b>Notes:</b> <span id="appointmentNotes">-</span></p>
+      </div>
+
+      <button id="prescribeFromAppointment" class="primary full">
+        Give Prescription
+      </button>
+
+      <section class="existing-prescriptions">
+        <h3>Prescription history for this appointment</h3>
+        <div id="appointmentPrescriptionList"></div>
+      </section>
     </div>
   </div>
 
@@ -107,5 +156,7 @@
     </div>
   </div>
 <script src="script.js"></script>
+
+<div id="passwordChangeModal" class="modal hidden"><form id="passwordChangeForm" class="modal-card"><h2>Password Change Required</h2><p>Replace your temporary password before continuing.</p><label>New Password<input id="requiredNewPassword" type="password" minlength="10" required></label><small>At least 10 characters with uppercase, lowercase and numbers.</small><p id="passwordChangeMessage" class="message hidden"></p><button class="primary full">Change Password</button></form></div>
 </body>
 </html>
