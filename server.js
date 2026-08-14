@@ -199,16 +199,26 @@ const accountSchema = new Schema(
     isOnline: { type: Boolean, default: false },
     lastSeenAt: { type: Date, default: null },
     // RFID UID linked to doctor accounts.
+    // Do not store null for accounts that do not have an RFID card yet.
     rfidUid: {
       type: String,
-      default: null,
-      unique: true,
-      sparse: true,
+      default: undefined,
       uppercase: true,
       trim: true
     }
   },
   { timestamps: true }
+);
+
+// RFID values must be unique only when a real string UID exists.
+// This allows multiple patient/doctor accounts to exist without an RFID UID.
+accountSchema.index(
+  { rfidUid: 1 },
+  {
+    name: "rfidUid_1",
+    unique: true,
+    partialFilterExpression: { rfidUid: { $type: "string" } }
+  }
 );
 
 const appointmentSchema = new Schema(
@@ -1982,10 +1992,37 @@ app.get("/", (req, res) => {
   res.redirect("/patient");
 });
 
+async function ensureAccountRfidIndex() {
+  const indexes = await Account.collection.indexes();
+  const existingRfidIndex = indexes.find((index) => index.name === "rfidUid_1");
+
+  const hasCorrectPartialFilter =
+    existingRfidIndex?.unique === true &&
+    existingRfidIndex?.partialFilterExpression?.rfidUid?.$type === "string";
+
+  if (existingRfidIndex && !hasCorrectPartialFilter) {
+    console.log("Replacing old rfidUid_1 index...");
+    await Account.collection.dropIndex("rfidUid_1");
+  }
+
+  await Account.collection.createIndex(
+    { rfidUid: 1 },
+    {
+      name: "rfidUid_1",
+      unique: true,
+      partialFilterExpression: { rfidUid: { $type: "string" } }
+    }
+  );
+}
+
 async function startServer() {
   try {
     await mongoose.connect(MONGODB_URI,{serverSelectionTimeoutMS:15000});
     console.log("Connected to MongoDB.");
+
+    // Repair the legacy RFID index before Mongoose initialises model indexes.
+    // The previous unique+sparse index allowed only one explicit null value.
+    await ensureAccountRfidIndex();
 
     await Promise.all([
       Account.init(), Appointment.init(), Prescription.init(), AuditLog.init(), Device.init(), SensorRecord.init(), TemperatureAlert.init(), CollectionSession.init()
