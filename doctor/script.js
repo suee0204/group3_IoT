@@ -367,6 +367,59 @@ todayButton.onclick = () => {
   renderDoctorCalendar();
 };
 
+let rfidPollTimers = new Map();
+
+function stopRfidPoll(prescriptionId) {
+  const timer = rfidPollTimers.get(prescriptionId);
+  if (timer) clearInterval(timer);
+  rfidPollTimers.delete(prescriptionId);
+}
+
+async function triggerRfidScan(prescriptionId, button) {
+  try {
+    stopRfidPoll(prescriptionId);
+    button.disabled = true;
+    button.textContent = "Waiting for RFID...";
+
+    const started = await api(`/api/doctor/prescriptions/${prescriptionId}/trigger-rfid`, {
+      method: "POST",
+      body: JSON.stringify({})
+    });
+
+    if (started.status === "READY") {
+      await loadPrescriptions();
+      return;
+    }
+
+    const poll = async () => {
+      try {
+        const state = await api(`/api/doctor/prescriptions/${prescriptionId}/rfid-status`);
+        if (state.status === "APPROVED") {
+          stopRfidPoll(prescriptionId);
+          await loadPrescriptions();
+        } else if (["REJECTED", "EXPIRED"].includes(state.status)) {
+          stopRfidPoll(prescriptionId);
+          button.disabled = false;
+          button.textContent = state.status === "REJECTED" ? "RFID Incorrect — Retry" : "Trigger RFID Scan";
+          button.title = state.message || "";
+        }
+      } catch (error) {
+        stopRfidPoll(prescriptionId);
+        button.disabled = false;
+        button.textContent = "Trigger RFID Scan";
+        button.title = error.message;
+      }
+    };
+
+    await poll();
+    rfidPollTimers.set(prescriptionId, setInterval(poll, 1000));
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = "Trigger RFID Scan";
+    alert(error.message);
+  }
+}
+
 async function loadPrescriptions() {
   const data = await api("/api/doctor/prescriptions");
 
@@ -377,8 +430,15 @@ async function loadPrescriptions() {
       <td>${prescription.medicationName} ${prescription.dosage}</td>
       <td>${prescription.collectionPin}</td>
       <td><span class="status">${prescription.status}</span></td>
+      <td>${prescription.status === "Preparing"
+        ? `<button class="outline rfid-trigger" data-id="${prescription.id}">Trigger RFID Scan</button>`
+        : "-"}</td>
     </tr>
   `).join("");
+
+  document.querySelectorAll(".rfid-trigger").forEach(button => {
+    button.onclick = () => triggerRfidScan(button.dataset.id, button);
+  });
 }
 
 
