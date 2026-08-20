@@ -287,8 +287,8 @@ const prescriptionSchema = new Schema(
     collectionPin: { type: String, required: true, unique: true, index: true },
     status: {
       type: String,
-      enum: ["Ready", "Collected"],
-      default: "Ready"
+      enum: ["Preparing", "Ready", "Collected"],
+      default: "Preparing"
     },
     collectedAt: { type: Date, default: null },
     lockerId: { type: String, default: "" },
@@ -349,6 +349,27 @@ const Device=mongoose.model("Device",deviceSchema);
 const SensorRecord=mongoose.model("SensorRecord",sensorRecordSchema);
 const TemperatureAlert=mongoose.model("TemperatureAlert",temperatureAlertSchema);
 const CollectionSession=mongoose.model("CollectionSession",collectionSessionSchema);
+
+// Short-lived RFID authorisation request. A doctor starts the request from the
+// prescription table; the locker polls for it and submits the scanned card UID.
+const rfidScanSessionSchema = new Schema({
+  prescriptionId: { type: Schema.Types.ObjectId, ref: "Prescription", required: true, index: true },
+  doctorId: { type: Schema.Types.ObjectId, ref: "Account", required: true, index: true },
+  deviceId: { type: String, default: "", index: true },
+  lockerId: { type: String, default: "" },
+  status: {
+    type: String,
+    enum: ["WAITING", "APPROVED", "REJECTED", "EXPIRED"],
+    default: "WAITING",
+    index: true
+  },
+  scannedUid: { type: String, default: "" },
+  message: { type: String, default: "" },
+  expiresAt: { type: Date, required: true, index: true },
+  completedAt: { type: Date, default: null }
+}, { timestamps: true });
+rfidScanSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+const RfidScanSession = mongoose.model("RfidScanSession", rfidScanSessionSchema);
 
 
 const failedAttemptSchema = new Schema(
@@ -1452,6 +1473,132 @@ app.post(
   }
 );
 
+/* RFID preparation flow shown in the locker demo. */
+app.post(
+  "/api/doctor/prescriptions/:id/trigger-rfid",
+  auth,
+  requirePasswordChanged,
+  role("doctor"),
+  async (req, res) => {
+    try {
+      if (!isObjectId(req.params.id)) {
+        return res.status(404).json({ error: "Prescription not found." });
+      }
+
+      const doctor = await Account.findOne({
+        _id: req.session.userId,
+        role: "doctor",
+        isActive: true
+      }).lean();
+
+      if (!doctor?.rfidUid) {
+        return res.status(409).json({
+          error: "No RFID tag is linked to this doctor. Ask an administrator to link one first."
+        });
+      }
+
+      const prescription = await Prescription.findOne({
+        _id: req.params.id,
+        doctorId: req.session.userId
+      });
+
+      if (!prescription) {
+        return res.status(404).json({ error: "Prescription not found." });
+      }
+
+      if (prescription.status === "Collected") {
+        return res.status(409).json({ error: "This prescription has already been collected." });
+      }
+
+      if (prescription.status === "Ready") {
+        return res.json({ status: "READY", message: "Prescription is already ready for collection." });
+      }
+
+      // Only one live request per prescription. Re-clicking Trigger RFID Scan simply
+      // renews the waiting window instead of creating competing scan requests.
+      await RfidScanSession.updateMany(
+        { prescriptionId: prescription._id, status: "WAITING" },
+        { status: "EXPIRED", completedAt: new Date(), message: "Superseded by a new scan request." }
+      );
+
+      const session = await RfidScanSession.create({
+        prescriptionId: prescription._id,
+        doctorId: req.session.userId,
+        status: "WAITING",
+        expiresAt: new Date(Date.now() + 60 * 1000)
+      });
+
+      await audit(req, {
+        actorType: "doctor",
+        actorId: req.session.userId,
+        action: "RFID_SCAN_REQUESTED",
+        targetType: "Prescription",
+        targetId: prescription._id,
+        success: true,
+        metadata: { rfidScanSessionId: session._id.toString() }
+      });
+
+      return res.json({
+        status: "WAITING",
+        scanSessionId: session._id.toString(),
+        expiresInSeconds: 60,
+        message: "RFID scan triggered. Tap the linked doctor card on the locker."
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ error: "Unable to trigger RFID scan." });
+    }
+  }
+);
+
+app.get(
+  "/api/doctor/prescriptions/:id/rfid-status",
+  auth,
+  requirePasswordChanged,
+  role("doctor"),
+  async (req, res) => {
+    if (!isObjectId(req.params.id)) {
+      return res.status(404).json({ error: "Prescription not found." });
+    }
+
+    const prescription = await Prescription.findOne({
+      _id: req.params.id,
+      doctorId: req.session.userId
+    }).lean();
+
+    if (!prescription) {
+      return res.status(404).json({ error: "Prescription not found." });
+    }
+
+    if (prescription.status === "Ready") {
+      return res.json({ status: "APPROVED", prescriptionStatus: "Ready", message: "RFID correct. Prescription is ready." });
+    }
+
+    const session = await RfidScanSession.findOne({
+      prescriptionId: prescription._id,
+      doctorId: req.session.userId
+    }).sort({ createdAt: -1 }).lean();
+
+    if (!session) {
+      return res.json({ status: "IDLE", prescriptionStatus: prescription.status });
+    }
+
+    if (session.status === "WAITING" && new Date(session.expiresAt) <= new Date()) {
+      await RfidScanSession.updateOne(
+        { _id: session._id, status: "WAITING" },
+        { status: "EXPIRED", completedAt: new Date(), message: "RFID scan timed out." }
+      );
+      return res.json({ status: "EXPIRED", prescriptionStatus: prescription.status, message: "RFID scan timed out." });
+    }
+
+    return res.json({
+      status: session.status,
+      prescriptionStatus: prescription.status,
+      message: session.message || ""
+    });
+  }
+);
+
 /* Administrator APIs */
 
 
@@ -1930,6 +2077,140 @@ app.post(
     }
   }
 );
+
+/* Locker RFID endpoints.
+   Firmware flow:
+   1) poll GET /api/iot/rfid-request
+   2) when scanRequested=true, show "Scan RFID Card" and read RC522
+   3) POST /api/iot/rfid-scan with { rfidUid: "XXXXXXXX" }
+*/
+app.get("/api/iot/rfid-request", authenticateDevice, async (req, res) => {
+  try {
+    const now = new Date();
+    await RfidScanSession.updateMany(
+      { status: "WAITING", expiresAt: { $lte: now } },
+      { status: "EXPIRED", completedAt: now, message: "RFID scan timed out." }
+    );
+
+    // The oldest waiting request is taken first so a locker handles one card scan at a time.
+    const session = await RfidScanSession.findOne({
+      status: "WAITING",
+      expiresAt: { $gt: now }
+    }).sort({ createdAt: 1 });
+
+    if (!session) {
+      return res.json({ scanRequested: false });
+    }
+
+    if (!session.deviceId) {
+      session.deviceId = req.device.deviceId;
+      session.lockerId = req.device.lockerId;
+      await session.save();
+    } else if (session.deviceId !== req.device.deviceId) {
+      return res.json({ scanRequested: false });
+    }
+
+    return res.json({
+      scanRequested: true,
+      scanSessionId: session._id.toString(),
+      prescriptionId: session.prescriptionId.toString(),
+      message: "Scan RFID Card"
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ status: "SERVER_ERROR" });
+  }
+});
+
+app.post("/api/iot/rfid-scan", authenticateDevice, async (req, res) => {
+  try {
+    const uid = String(req.body.rfidUid || "")
+      .replace(/[^a-fA-F0-9]/g, "")
+      .toUpperCase();
+
+    if (!/^[A-F0-9]{8}$/.test(uid)) {
+      return res.status(400).json({ status: "INVALID_RFID_FORMAT", message: "RFID UID must be 8 hexadecimal characters." });
+    }
+
+    const session = await RfidScanSession.findOne({
+      status: "WAITING",
+      deviceId: req.device.deviceId,
+      lockerId: req.device.lockerId,
+      expiresAt: { $gt: new Date() }
+    }).sort({ createdAt: 1 });
+
+    if (!session) {
+      return res.status(404).json({ status: "NO_RFID_REQUEST", message: "No RFID scan has been triggered." });
+    }
+
+    const doctor = await Account.findOne({
+      _id: session.doctorId,
+      role: "doctor",
+      isActive: true
+    }).lean();
+
+    if (!doctor?.rfidUid || String(doctor.rfidUid).toUpperCase() !== uid) {
+      session.status = "REJECTED";
+      session.scannedUid = uid;
+      session.message = "RFID incorrect. Please try again.";
+      session.completedAt = new Date();
+      await session.save();
+
+      await audit(req, {
+        actorType: "device",
+        actorId: req.device.deviceId,
+        action: "RFID_SCAN_REJECTED",
+        targetType: "Prescription",
+        targetId: session.prescriptionId,
+        lockerId: req.device.lockerId,
+        success: false,
+        metadata: { scannedUid: uid }
+      });
+
+      return res.status(401).json({
+        status: "RFID_INCORRECT",
+        message: "RFID incorrect. Please try again."
+      });
+    }
+
+    const prescription = await Prescription.findOneAndUpdate(
+      { _id: session.prescriptionId, doctorId: session.doctorId, status: "Preparing" },
+      { status: "Ready", lockerId: req.device.lockerId },
+      { new: true }
+    );
+
+    if (!prescription) {
+      return res.status(409).json({ status: "PRESCRIPTION_NOT_PREPARING", message: "Prescription is no longer awaiting RFID authorisation." });
+    }
+
+    session.status = "APPROVED";
+    session.scannedUid = uid;
+    session.message = "RFID correct. Prescription ready.";
+    session.completedAt = new Date();
+    await session.save();
+
+    await audit(req, {
+      actorType: "device",
+      actorId: req.device.deviceId,
+      action: "RFID_SCAN_APPROVED",
+      targetType: "Prescription",
+      targetId: prescription._id,
+      lockerId: req.device.lockerId,
+      success: true,
+      metadata: { doctorId: session.doctorId.toString() }
+    });
+
+    return res.json({
+      status: "RFID_CORRECT",
+      message: "RFID correct. Ready for PIN collection.",
+      prescriptionId: prescription._id.toString(),
+      collectionPin: prescription.collectionPin
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ status: "SERVER_ERROR" });
+  }
+});
 
 /* Existing ESP8266-compatible dispense endpoint */
 
