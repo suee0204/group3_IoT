@@ -365,3 +365,7 @@ body.modal-open {
     border-radius: 14px;
   }
 }
+
+/* RFID preparation workflow */
+.rfid-trigger { min-width: 130px; white-space: nowrap; }
+.rfid-trigger:disabled { opacity: .65; cursor: wait; }
